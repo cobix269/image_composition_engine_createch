@@ -38,3 +38,5 @@ class Layer:
 
     def _sepia(self) -> Layer:
         return sepia(self)
+
+

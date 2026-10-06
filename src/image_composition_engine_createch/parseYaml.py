@@ -1,22 +1,24 @@
+from logging import raiseExceptions
 import yaml  ## Need uv add pyyaml
 from pprint import pprint
+from .utils import *
 
 def read_yaml():
     with open("conf.yml") as f:
         config = yaml.load(f, yaml.CFullLoader)
-    pprint(config)
-    print("*************")
-    for layer in config["layers"]:
-        print(layer["image"])
-        print(layer["filters"])
-        try:
-            print(layer["blend"])
-            print(layer["opacity"])
-        except:
-            print("")
-        print("-----")
-        # load image
-        # apply filter
-        # save img
+    return config
+    
+def parse_yaml():
+    data: dict = read_yaml()
+    for layer in data["layers"]:
+        for image in layer["image"]:
+            try:
+                array_from_file(image)
+            except:
+                raise ValueError(f"L'image {image} n'existe pas.")
 
-read_yaml()
+        for filter in layer["filters"]:
+            
+    pprint(data)
+
+parse_yaml()
