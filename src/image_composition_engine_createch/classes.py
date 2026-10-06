@@ -3,13 +3,12 @@ import numpy as np
 from dataclasses import dataclass
 import scipy.ndimage
 from filters.py import grayscale
+from utils.py import img2RGB
 
 class Layer:
     def __init__(self, src: str, opacity: float = 0.1) -> None:
         
-        img: Image = Image.open(src)
-        self.pixels: np.ndarray = np.array(img.convert('RGBA'))
-
+        self.pixels: img2RGB(src)
         self.opacity: float = opacity
 
     def grayscale(self) -> Layer:
