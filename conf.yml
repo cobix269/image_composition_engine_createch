@@ -1,0 +1,20 @@
+layers:
+  - image: photo.jpg
+    filters:
+      - name: grayscale
+      - name: gaussianblur
+        params:
+          window: 5
+          sigma: 2.0
+  - image: 1_velo.png
+    filters:
+      - name: gaussianblur
+        params:
+          window: 10
+          sigma: 4.2
+    blend: normal
+    opacity: 0.32
+  - image: 2_mur.png
+    filters: []
+    blend: lighten
+    opacity: 1.0
