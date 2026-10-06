@@ -1,24 +1,20 @@
-from logging import raiseExceptions
-import yaml  ## Need uv add pyyaml
-from pprint import pprint
-from .utils import *
 
-def read_yaml():
-    with open("conf.yml") as f:
-        config = yaml.load(f, yaml.CFullLoader)
-    return config
-    
-def parse_yaml():
-    data: dict = read_yaml()
-    for layer in data["layers"]:
-        for image in layer["image"]:
-            try:
-                array_from_file(image)
-            except:
-                raise ValueError(f"L'image {image} n'existe pas.")
+from pathlib import Path
 
-        for filter in layer["filters"]:
-            
-    pprint(data)
+import yaml
 
-parse_yaml()
+def read_yaml(path: str | Path | None = None) -> list[str]:
+    """Lit les chemins d'images, relatifs au dossier du fichier YAML."""
+    # Le chemin par défaut ne dépend pas du dossier ouvert dans le terminal.
+    config_path = Path(path) if path is not None else Path(__file__).resolve().parents[2] / "conf.yml"
+    with config_path.open() as f:
+        config = yaml.safe_load(f)
+
+    images = [config_path.parent / layer["image"] for layer in config["layers"]]
+    missing = [str(image.resolve()) for image in images if not image.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            "Images introuvables :\n" + "\n".join(missing)
+            + "\nCorrige les chemins dans " + str(config_path.resolve())
+        )
+    return [str(image.resolve()) for image in images]

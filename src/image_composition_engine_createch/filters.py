@@ -1,5 +1,11 @@
-from .classes import Layer
-from .constants import R,G,B,A
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+# Layer sert aux annotations ; l'importer à l'exécution créerait un cycle.
+if TYPE_CHECKING:
+    from classes import Layer
+from constants import R,G,B,A
 import numpy as np
 import scipy
 
