@@ -1,6 +1,7 @@
 from .classes import Layer
 from .constants import R,G,B,A
 import numpy as np
+import scipy
 
 def grayscale(layer: Layer) -> Layer:
     """Transforme l'image en noir et blanc."""

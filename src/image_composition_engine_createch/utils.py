@@ -22,6 +22,7 @@ def show_from_array(arr : np.ndarray) :
 def display_from_array(arr : np.ndarray) :
     img = array_to_image(arr)
     display(img)
+    
 #pour les images RGBA 
 def array_from_file_RGBA(path : str) -> np.ndarray:
     image = Image.open(path).convert('RGBA')

@@ -2,8 +2,8 @@ from PIL import Image
 import numpy as np
 from dataclasses import dataclass
 import scipy.ndimage
-from filters.py import grayscale, swapBG, brightness, contrast, blur, black_border, invert, sepia
-from utils.py import array_from_file
+from .filters import grayscale, swapBG, brightness, contrast, blur, black_border, invert, sepia
+from .utils import array_from_file
 R = 0
 G = 1
 B = 2
@@ -22,7 +22,7 @@ class Layer:
         return swapBG(self)
 
     def _brightness(self, value: float) -> Layer:
-        return 
+        return brightness(self)
 
     def _contrast(self, value: float) -> Layer:
         return contrast(self)
