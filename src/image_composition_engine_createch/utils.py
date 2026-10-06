@@ -1,56 +1,47 @@
-from PIL import Image
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
-from dataclasses import dataclass
-import scipy.ndimage
-from classes.py import Layer
+from PIL import Image
 
-def img2RGB(src: str) -> np.ndarray:
-    img: Image = Image.open(src)
-    return np.array(img.convert('RGB'))
+if TYPE_CHECKING:
+    from .classes import Layer
 
-def array_from_file(path : str) -> np.ndarray:
-    image = Image.open(path).convert('RGB')
-    im = np.array(image) / 255
-    return im
-def array_to_image(arr : np.ndarray) :
-    adjusted = np.array(np.clip(arr , 0, 1) * 255, dtype=np.uint8)
-    new_pil_im = Image.fromarray(adjusted)   
-    return new_pil_im
-def show_from_array(arr : np.ndarray) :
-    img = array_to_image(arr)
-    img.show() 
-def display_from_array(arr : np.ndarray) :
-    img = array_to_image(arr)
-    display(img)
-    
-#pour les images RGBA 
-def array_from_file_RGBA(path : str) -> np.ndarray:
-    image = Image.open(path).convert('RGBA')
-    im = np.array(image) / 255
-    return im
-def array_to_image_RGBA(arr : np.ndarray) :
-    adjusted = np.array(np.clip(arr , 0, 1) * 255, dtype=np.uint8)
-    new_pil_im = Image.fromarray(adjusted)   
-    return new_pil_im
-def show_from_array_RGBA(arr : np.ndarray) :
-    img = array_to_image_RGBA(arr)
-    img.show()
-def display_from_array_RGBA(arr : np.ndarray) :
-    img = array_to_image_RGBA(arr)
-    display(img)
+
+def array_from_file(path: str, mode: str = "RGB") -> np.ndarray:
+    """Charge une image RGB ou RGBA en uint8 (0 à 255)."""
+    with Image.open(path) as image:
+        return np.array(image.convert(mode))
+
+
+def array_to_image(arr: np.ndarray) -> Image.Image:
+    """Convertit des pixels de 0 à 255 en image RGB ou RGBA."""
+    return Image.fromarray(np.clip(np.rint(arr), 0, 255).astype(np.uint8))
+
+
+def show_from_array(arr: np.ndarray) -> None:
+    array_to_image(arr).show()
+
+
+def display_from_array(arr: np.ndarray) -> None:
+    show_from_array(arr)
+
+
+def array_from_file_RGBA(path: str) -> np.ndarray:
+    return array_from_file(path, "RGBA")
 
 
 def compose(layers: list[Layer]) -> np.ndarray:
-    """Superpose des calques RGB ou RGBA sur un fond noir."""
+    """Superpose des calques de pixels 0 à 255 sur un fond noir."""
     if not layers:
         raise ValueError("Il faut au moins un calque.")
 
     height, width = layers[0].pixels.shape[:2]
-    out = np.zeros((height, width, 3), dtype=np.float32)
+    result = np.zeros((height, width, 3), dtype=np.float32)
 
     for layer in layers:
         pixels = layer.pixels
-
         if pixels.ndim != 3 or pixels.shape[2] not in (3, 4):
             raise ValueError("Chaque calque doit être RGB ou RGBA.")
         if pixels.shape[:2] != (height, width):
@@ -58,12 +49,10 @@ def compose(layers: list[Layer]) -> np.ndarray:
         if not 0 <= layer.opacity <= 1:
             raise ValueError("L'opacité doit être comprise entre 0 et 1.")
 
-        src = pixels[:, :, :3].astype(np.float32)
         alpha = layer.opacity
-
         if pixels.shape[2] == 4:
             alpha = alpha * pixels[:, :, 3:4].astype(np.float32) / 255
 
-        out = (1 - alpha) * out + alpha * src
+        result = (1 - alpha) * result + alpha * pixels[:, :, :3]
 
-    return np.clip(np.rint(out), 0, 255).astype(np.uint8)
+    return np.clip(np.rint(result), 0, 255).astype(np.uint8)
