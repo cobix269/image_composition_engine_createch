@@ -7,7 +7,11 @@ authors = [
     { name = "Zoé Desfretier", email = "zoe.desfretier@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.3",
+    "pillow>=12.3.0",
+    "scipy>=1.18.1",
+]
 
 [project.scripts]
 image-composition-engine-createch = "image_composition_engine_createch:main"
