@@ -8,6 +8,8 @@ Avec Python 3.14 et `uv`, depuis la racine du projet :
 uv sync --locked
 uv run image-composition-engine-createch
 ```
+Projet du duo : Romain Decrand Lardière et Zoé Desfretier 
+Binôme de Binôme : Raphael De Rouvre et Paco Tibherin 
 
 Le moteur lit `conf.yml` et affiche la composition. Les chemins d'images du
 YAML sont relatifs à `src/image_composition_engine_createch`.
@@ -29,12 +31,11 @@ YAML sont relatifs à `src/image_composition_engine_createch`.
 
 ## Échanger un filtre
 
-Le contrat actuel est simple : une fonction reçoit le calque en premier argument,
+Une fonction reçoit le calque en premier argument,
 travaille sur `layer.pixels` et renvoie le calque. Les pixels sont un tableau NumPy
 RGBA de forme `(hauteur, largeur, 4)`, en `uint8` entre 0 et 255. Les filtres de
 couleur conservent l'alpha, les dimensions, l'opacité et le mode de blend.
-Un filtre peut modifier les pixels en place ou renvoyer un nouveau calque respectant
-ce contrat ; le moteur récupère toujours sa valeur de retour.
+Un filtre peut modifier les pixels en place ou renvoyer un nouveau calque ; le moteur récupère toujours sa valeur de retour.
 
 Pour importer un filtre d'un autre groupe :
 
