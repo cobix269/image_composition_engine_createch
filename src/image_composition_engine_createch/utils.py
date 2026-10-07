@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 from PIL import Image
 
-from blend import blendColors
+from .blend import blendColors
 
 # Layer sert uniquement aux annotations : cet import évite une dépendance
 # circulaire à l'exécution, puisque classes.py importe aussi utils.py.
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from .classes import Layer
 
 
-def array_from_file(path: str, mode: str = "RGB") -> np.ndarray:
+def array_from_file(path: str | Path, mode: str = "RGB") -> np.ndarray:
     """Charge une image RGB ou RGBA en uint8 (0 à 255)."""
     # Le tableau garde ses pixels en mémoire après la fermeture du fichier.
     with Image.open(path) as image:
@@ -31,16 +32,6 @@ def array_to_image(arr: np.ndarray) -> Image.Image:
 def show_from_array(arr: np.ndarray) -> None:
     """Ouvre l'image dans la visionneuse du système via Pillow."""
     array_to_image(arr).show()
-
-
-def display_from_array(arr: np.ndarray) -> None:
-    """Même affichage que show_from_array, dans une fenêtre externe."""
-    show_from_array(arr)
-
-
-def array_from_file_RGBA(path: str) -> np.ndarray:
-    """Charge les couleurs et le canal alpha (0 transparent, 255 opaque)."""
-    return array_from_file(path, "RGBA")
 
 
 def compose(layers: list[Layer]) -> np.ndarray:

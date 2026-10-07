@@ -1,23 +1,36 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from filters import grayscale, swapBG, brightness, contrast, blur, gaussianBlur, black_border, invert, sepia
-from utils import array_from_file
+from .blend import blendFunctions
+from .filters import (
+    black_border,
+    blur,
+    brightness,
+    contrast,
+    gaussianBlur,
+    grayscale,
+    invert,
+    sepia,
+    swapBG,
+)
+from .utils import array_from_file
 
 
 class BlendParams(BaseModel):
     """Définit les modes de fusion acceptés et le mode par défaut."""
     model_config = ConfigDict(strict=True, extra="forbid")
-    blend: Literal[
-        "normal", "darken", "multiply", "color_burn", "linear_burn",
-        "lighten", "screen", "color_dodge", "linear_dodge", "overlay",
-        "soft_light", "hard_light", "vivid_light", "linear_light",
-        "pin_light", "difference", "exclusion",
-    ] = "normal"
+    blend: str = "normal"
+
+    @field_validator("blend")
+    @classmethod
+    def validate_blend(cls, mode: str) -> str:
+        if mode not in blendFunctions:
+            available = ", ".join(blendFunctions)
+            raise ValueError(f"Mode de blend inconnu : {mode!r}. Modes disponibles : {available}.")
+        return mode
 
 
 class FilterParams(BaseModel):
@@ -26,7 +39,7 @@ class FilterParams(BaseModel):
 
 
 class BrightnessParams(FilterParams):
-    value: float
+    value: float = Field(ge=0)
 
 
 class ContrastParams(FilterParams):
@@ -64,6 +77,7 @@ class Layer:
 
     # Associe chaque fonction au modèle qui décrit ses paramètres valides.
     # FilterParams seul correspond aux filtres sans paramètres.
+    # Un filtre échangé peut être enregistré sans modèle de validation.
     FILTER_PARAMS = {
         grayscale: FilterParams,
         swapBG: FilterParams,
@@ -76,34 +90,7 @@ class Layer:
         sepia: FilterParams,
     }
 
-    def __init__(self, src: str | Path, opacity: float = 0.1, blend: str = "normal") -> None:
+    def __init__(self, src: str | Path, opacity: float = 1.0, blend: str = "normal") -> None:
         self.pixels = array_from_file(src, "RGBA")
         self.opacity: float = opacity
         self.blend: str = BlendParams(blend=blend).blend
-
-    def _grayscale(self) -> Layer:
-        return grayscale(self)
-
-    def _swapBG(self) -> Layer:
-        return swapBG(self)
-
-    def _brightness(self, value: float) -> Layer:
-        return brightness(self, value)
-
-    def _contrast(self, value: float) -> Layer:
-        return contrast(self, value)
-
-    def _blur(self, radius: int) -> Layer:
-        return blur(self, radius)
-
-    def _black_border(self, thickness: int = 10) -> Layer:
-        return black_border(self, thickness)
-
-    def _invert(self) -> Layer:
-        return invert(self)
-
-    def _sepia(self) -> Layer:
-        return sepia(self)
-
-    def _gaussianBlur(self, window: int, sigma: float) -> Layer:
-        return gaussianBlur(self, window, sigma)

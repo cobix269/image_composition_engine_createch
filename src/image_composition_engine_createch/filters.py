@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import numpy as np
+from scipy import ndimage
+
 # Layer sert aux annotations ; l'importer à l'exécution créerait un cycle.
 if TYPE_CHECKING:
-    from classes import Layer
-from constants import R,G,B,A
-import numpy as np
-import scipy
+    from .classes import Layer
+
+# Ces indices restent dans le fichier pour pouvoir échanger les filtres seuls.
+R, G, B = 0, 1, 2
+
 
 def grayscale(layer: Layer) -> Layer:
     """Transforme l'image en noir et blanc."""
@@ -22,28 +26,33 @@ def grayscale(layer: Layer) -> Layer:
     layer.pixels[:, :, :3] = gray[:, :, None]
     return layer
 
+
 def swapBG(layer: Layer) -> Layer:
     """Echange le bleu et le vert de l'image."""
     layer.pixels[:, :, [G, B]] = layer.pixels[:, :, [B, G]]
     return layer
 
+
 def brightness(layer: Layer, value: float) -> Layer:
-    """Change la luminosité de l'image."""
-    pixels = layer.pixels[:, :, :3].astype(np.float32)
-    pixels += (1 - value) * (255 // 2 - pixels)
+    """Multiplie les couleurs : 0 donne du noir, 1 conserve la luminosité."""
+    if value < 0:
+        raise ValueError("La luminosité doit être positive ou nulle.")
+    pixels = layer.pixels[:, :, :3].astype(np.float32) * value
     layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
 
+
 def contrast(layer: Layer, value: float) -> Layer:
     """Change le contraste de l'image."""
-    if value <= 0 or value >5 :
-        raise ValueError("Le contraste doit être entre 0 et 5")
-    
+    if not 0 < value <= 5:
+        raise ValueError("Le contraste doit être supérieur à 0 et inférieur ou égal à 5.")
+
     pixels = layer.pixels[:, :, :3].astype(np.float32)
     pixels += (1 - value) * (255 // 2 - pixels)
     layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
-    
+
     return layer
+
 
 def blur(layer: Layer, radius: int) -> Layer:
     """Flou moyen par convolution horizontale puis verticale."""
@@ -55,10 +64,11 @@ def blur(layer: Layer, radius: int) -> Layer:
     size = 2 * radius + 1
     kernel = np.ones(size, dtype=np.float32) / size
     pixels = layer.pixels[:, :, :3].astype(np.float32)
-    pixels = scipy.ndimage.convolve(pixels, kernel[None, :, None], mode="reflect")
-    pixels = scipy.ndimage.convolve(pixels, kernel[:, None, None], mode="reflect")
+    pixels = ndimage.convolve(pixels, kernel[None, :, None], mode="reflect")
+    pixels = ndimage.convolve(pixels, kernel[:, None, None], mode="reflect")
     layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
+
 
 def black_border(layer: Layer, thickness: int = 10) -> Layer:
     """Ajoute une bordure noire sans changer la taille de l'image."""
@@ -73,12 +83,14 @@ def black_border(layer: Layer, thickness: int = 10) -> Layer:
     layer.pixels[:, -thickness:, :3] = 0
     return layer
 
-def invert(layer) -> Layer:
+
+def invert(layer: Layer) -> Layer:
     """Inverse les couleurs sans inverser la transparence."""
     layer.pixels[:, :, :3] = 255 - layer.pixels[:, :, :3]
     return layer
 
-def sepia(layer) -> Layer:
+
+def sepia(layer: Layer) -> Layer:
     """Applique la matrice de transformation sépia classique."""
     pixels = layer.pixels[:, :, :3].astype(np.float32)
     red = pixels[:, :, R]
@@ -94,7 +106,6 @@ def sepia(layer) -> Layer:
     return layer
 
 
-
 def gaussianBlur(layer: Layer, window: int, sigma: float) -> Layer:
     """Applique une convolution gaussienne 2D sans modifier le canal alpha."""
     x = np.arange(window) - (window - 1) / 2
@@ -105,6 +116,6 @@ def gaussianBlur(layer: Layer, window: int, sigma: float) -> Layer:
 
     # Le dernier axe de taille 1 évite de mélanger les canaux RGB.
     pixels = layer.pixels[:, :, :3].astype(np.float32)
-    pixels = scipy.ndimage.convolve(pixels, kernel2D[:, :, None], mode="reflect")
+    pixels = ndimage.convolve(pixels, kernel2D[:, :, None], mode="reflect")
     layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
