@@ -4,7 +4,7 @@ import yaml
 from PIL import Image
 from pydantic import ValidationError
 
-from classes import BlendParams, Layer
+from .classes import BlendParams, Layer
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = SCRIPT_DIR.parents[1] / "conf.yml"
@@ -44,20 +44,24 @@ def validate_opacity(config: dict) -> None:
             )
 
 
-def validateBlendModes(config: dict) -> None:
+def validate_blend_modes(config: dict) -> None:
     """Valide les modes de fusion avec Pydantic ; le défaut est normal."""
-    for layerNumber, layer in enumerate(config["layers"], start=1):
+    for layer_number, layer in enumerate(config["layers"], start=1):
         try:
             validated = BlendParams.model_validate({"blend": layer.get("blend", "normal")})
         except ValidationError as error:
             message = error.errors()[0]["msg"]
-            raise ValueError(f"Calque {layerNumber}, blend : {message}.") from error
+            raise ValueError(f"Calque {layer_number}, blend : {message}.") from error
         layer["blend"] = validated.blend
 
 
 def validate_filter_params(name: str, params: dict, layer_number: int) -> dict:
-    """Valide les paramètres avec le modèle Pydantic associé au filtre."""
-    model = Layer.FILTER_PARAMS[Layer.FILTERS[name]]
+    """Valide les paramètres si le filtre possède un modèle Pydantic."""
+    if not isinstance(params, dict):
+        raise ValueError(f"Calque {layer_number}, filtre '{name}' : params doit être un dictionnaire.")
+    model = Layer.FILTER_PARAMS.get(Layer.FILTERS[name])
+    if model is None:
+        return params
     try:
         validated = model.model_validate(params)
     except ValidationError as error:
@@ -102,7 +106,7 @@ def read_yaml(path: str | Path | None = None) -> dict:
 
     validate_structure(config)
     validate_opacity(config)
-    validateBlendModes(config)
+    validate_blend_modes(config)
     validate_filters(config)
     validate_images(config)
     return config
