@@ -41,80 +41,86 @@ def array_from_file_RGBA(path: str) -> np.ndarray:
     return array_from_file(path, "RGBA")
 
 
-def _color_burn(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
+def colorBurn(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
     # Si le diviseur vaut zéro, le résultat est noir (sauf sur un fond blanc).
     ratio = np.divide(1 - background, foreground,
                       out=np.ones_like(background), where=foreground != 0)
     return np.where(background == 1, 1, 1 - np.clip(ratio, 0, 1))
 
 
-def _color_dodge(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
+def colorDodge(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
     # Si le diviseur vaut zéro, le résultat est blanc (sauf sur un fond noir).
     ratio = np.divide(background, 1 - foreground,
                       out=np.ones_like(background), where=foreground != 1)
     return np.where(background == 0, 0, np.clip(ratio, 0, 1))
 
 
-def blend_colors(background: np.ndarray, foreground: np.ndarray, mode: str) -> np.ndarray:
-    """Calcule les couleurs du mélange (RGB de 0 à 255), sans l'opacité.
+def overlay(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
+    return np.where(
+        background <= 0.5,
+        2 * background * foreground,
+        1 - 2 * (1 - background) * (1 - foreground),
+    )
 
-    Les entrées ne sont pas modifiées. Le calcul en flottants évite les
-    débordements des opérations sur les tableaux uint8.
-    """
-    # Les formules de la référence utilisent des couleurs entre 0 et 1.
+
+def softLight(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
+    # Approximation proposée dans la référence Deep Sky Colors.
+    return np.where(
+        foreground <= 0.5,
+        background * (foreground + 0.5),
+        1 - (1 - background) * (1.5 - foreground),
+    )
+
+
+def vividLight(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
+    return np.where(
+        foreground <= 0.5,
+        colorDodge(background, 2 * foreground),
+        colorBurn(background, 2 * foreground - 1),
+    )
+
+
+def pinLight(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
+    return np.where(
+        foreground <= 0.5,
+        np.minimum(background, 2 * foreground),
+        np.maximum(background, 2 * foreground - 1),
+    )
+
+
+# Chaque mode pointe vers sa formule : b = fond, f = nouveau calque.
+blendFunctions = {
+    "normal": lambda b, f: f,
+    "darken": np.minimum,
+    "multiply": np.multiply,
+    "color_burn": colorBurn,
+    "linear_burn": lambda b, f: b + f - 1,
+    "lighten": np.maximum,
+    "screen": lambda b, f: 1 - (1 - b) * (1 - f),
+    "color_dodge": colorDodge,
+    "linear_dodge": np.add,
+    "overlay": overlay,
+    "soft_light": softLight,
+    "hard_light": lambda b, f: overlay(f, b),
+    "vivid_light": vividLight,
+    "linear_light": lambda b, f: b + 2 * f - 1,
+    "pin_light": pinLight,
+    "difference": lambda b, f: np.abs(b - f),
+    "exclusion": lambda b, f: b + f - 2 * b * f,
+}
+
+
+def blend_colors(background: np.ndarray, foreground: np.ndarray, mode: str) -> np.ndarray:
+    """Applique le mode de fusion aux couleurs RGB, sans modifier les entrées."""
+    try:
+        blendFunction = blendFunctions[mode]
+    except KeyError as error:
+        raise ValueError(f"Mode de blend inconnu : {mode!r}.") from error
+
+    # Calculer entre 0 et 1 en flottants, puis revenir aux pixels de 0 à 255.
     background = background.astype(np.float32) / 255
     foreground = foreground.astype(np.float32) / 255
-
-    if mode == "normal":
-        blended = foreground
-    elif mode == "darken":
-        blended = np.minimum(background, foreground)
-    elif mode == "multiply":
-        blended = background * foreground
-    elif mode == "color_burn":
-        blended = _color_burn(background, foreground)
-    elif mode == "linear_burn":
-        blended = background + foreground - 1
-    elif mode == "lighten":
-        blended = np.maximum(background, foreground)
-    elif mode == "screen":
-        blended = 1 - (1 - background) * (1 - foreground)
-    elif mode == "color_dodge":
-        blended = _color_dodge(background, foreground)
-    elif mode == "linear_dodge":
-        blended = background + foreground
-    elif mode == "overlay":
-        blended = np.where(background <= 0.5,
-                           2 * background * foreground,
-                           1 - 2 * (1 - background) * (1 - foreground))
-    elif mode == "soft_light":
-        # Approximation proposée dans la référence Deep Sky Colors.
-        blended = np.where(foreground <= 0.5,
-                           background * (foreground + 0.5),
-                           1 - (1 - background) * (1.5 - foreground))
-    elif mode == "hard_light":
-        blended = np.where(foreground <= 0.5,
-                           2 * background * foreground,
-                           1 - 2 * (1 - background) * (1 - foreground))
-    elif mode == "vivid_light":
-        # Reprend les deux branches du tableau fourni en référence.
-        blended = np.where(foreground <= 0.5,
-                           _color_dodge(background, 2 * foreground),
-                           _color_burn(background, 2 * foreground - 1))
-    elif mode == "linear_light":
-        blended = background + 2 * foreground - 1
-    elif mode == "pin_light":
-        blended = np.where(foreground <= 0.5,
-                           np.minimum(background, 2 * foreground),
-                           np.maximum(background, 2 * foreground - 1))
-    elif mode == "difference":
-        blended = np.abs(background - foreground)
-    elif mode == "exclusion":
-        blended = background + foreground - 2 * background * foreground
-    else:
-        raise ValueError(f"Mode de blend inconnu : {mode!r}.")
-
-    # Borner avant l'opacité empêche un mode de produire des couleurs hors plage.
+    blended = blendFunction(background, foreground)
     return np.clip(blended, 0, 1) * 255
 
 
