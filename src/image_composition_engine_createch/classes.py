@@ -1,12 +1,12 @@
-from PIL import Image
-import numpy as np
-from dataclasses import dataclass
-import scipy.ndimage
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
 from filters import grayscale, swapBG, brightness, contrast, blur, gaussianBlur, black_border, invert, sepia
 from utils import array_from_file
-from constants import R,G,B,A
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Literal
 
 
 class BlendParams(BaseModel):
@@ -47,6 +47,8 @@ class BlackBorderParams(FilterParams):
 
 
 class Layer:
+    """Calque RGBA dont les filtres modifient les pixels et renvoient le calque."""
+
     # Associe chaque nom accepté dans le YAML à sa fonction.
     FILTERS = {
         "grayscale": grayscale,
@@ -74,8 +76,7 @@ class Layer:
         sepia: FilterParams,
     }
 
-    def __init__(self, src: str, opacity: float = 0.1, blend: str = "normal") -> None:
-        
+    def __init__(self, src: str | Path, opacity: float = 0.1, blend: str = "normal") -> None:
         self.pixels = array_from_file(src, "RGBA")
         self.opacity: float = opacity
         self.blend: str = BlendParams(blend=blend).blend
@@ -87,17 +88,17 @@ class Layer:
         return swapBG(self)
 
     def _brightness(self, value: float) -> Layer:
-        return brightness(self)
+        return brightness(self, value)
 
     def _contrast(self, value: float) -> Layer:
-        return contrast(self)
-    
+        return contrast(self, value)
+
     def _blur(self, radius: int) -> Layer:
-        return blur(self)
+        return blur(self, radius)
 
     def _black_border(self, thickness: int = 10) -> Layer:
-        return black_border(self)
-    
+        return black_border(self, thickness)
+
     def _invert(self) -> Layer:
         return invert(self)
 

@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 from PIL import Image
 
+from blend import blendColors
+
 # Layer sert uniquement aux annotations : cet import évite une dépendance
 # circulaire à l'exécution, puisque classes.py importe aussi utils.py.
 if TYPE_CHECKING:
@@ -41,89 +43,6 @@ def array_from_file_RGBA(path: str) -> np.ndarray:
     return array_from_file(path, "RGBA")
 
 
-def colorBurn(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
-    # Si le diviseur vaut zéro, le résultat est noir (sauf sur un fond blanc).
-    ratio = np.divide(1 - background, foreground,
-                      out=np.ones_like(background), where=foreground != 0)
-    return np.where(background == 1, 1, 1 - np.clip(ratio, 0, 1))
-
-
-def colorDodge(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
-    # Si le diviseur vaut zéro, le résultat est blanc (sauf sur un fond noir).
-    ratio = np.divide(background, 1 - foreground,
-                      out=np.ones_like(background), where=foreground != 1)
-    return np.where(background == 0, 0, np.clip(ratio, 0, 1))
-
-
-def overlay(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
-    return np.where(
-        background <= 0.5,
-        2 * background * foreground,
-        1 - 2 * (1 - background) * (1 - foreground),
-    )
-
-
-def softLight(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
-    # Approximation proposée dans la référence Deep Sky Colors.
-    return np.where(
-        foreground <= 0.5,
-        background * (foreground + 0.5),
-        1 - (1 - background) * (1.5 - foreground),
-    )
-
-
-def vividLight(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
-    return np.where(
-        foreground <= 0.5,
-        colorDodge(background, 2 * foreground),
-        colorBurn(background, 2 * foreground - 1),
-    )
-
-
-def pinLight(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
-    return np.where(
-        foreground <= 0.5,
-        np.minimum(background, 2 * foreground),
-        np.maximum(background, 2 * foreground - 1),
-    )
-
-
-# Chaque mode pointe vers sa formule : b = fond, f = nouveau calque.
-blendFunctions = {
-    "normal": lambda b, f: f,
-    "darken": np.minimum,
-    "multiply": np.multiply,
-    "color_burn": colorBurn,
-    "linear_burn": lambda b, f: b + f - 1,
-    "lighten": np.maximum,
-    "screen": lambda b, f: 1 - (1 - b) * (1 - f),
-    "color_dodge": colorDodge,
-    "linear_dodge": np.add,
-    "overlay": overlay,
-    "soft_light": softLight,
-    "hard_light": lambda b, f: overlay(f, b),
-    "vivid_light": vividLight,
-    "linear_light": lambda b, f: b + 2 * f - 1,
-    "pin_light": pinLight,
-    "difference": lambda b, f: np.abs(b - f),
-    "exclusion": lambda b, f: b + f - 2 * b * f,
-}
-
-
-def blend_colors(background: np.ndarray, foreground: np.ndarray, mode: str) -> np.ndarray:
-    """Applique le mode de fusion aux couleurs RGB, sans modifier les entrées."""
-    try:
-        blendFunction = blendFunctions[mode]
-    except KeyError as error:
-        raise ValueError(f"Mode de blend inconnu : {mode!r}.") from error
-
-    # Calculer entre 0 et 1 en flottants, puis revenir aux pixels de 0 à 255.
-    background = background.astype(np.float32) / 255
-    foreground = foreground.astype(np.float32) / 255
-    blended = blendFunction(background, foreground)
-    return np.clip(blended, 0, 1) * 255
-
-
 def compose(layers: list[Layer]) -> np.ndarray:
     """Superpose les calques dans l'ordre de la liste, du fond vers le dessus.
 
@@ -155,7 +74,7 @@ def compose(layers: list[Layer]) -> np.ndarray:
 
         # Le blend définit les couleurs, puis l'alpha dose leur contribution.
         try:
-            blended = blend_colors(result, pixels[:, :, :3], layer.blend)
+            blended = blendColors(result, pixels[:, :, :3], layer.blend)
         except ValueError as error:
             raise ValueError(f"Calque {index} : {error}") from error
         result = (1 - alpha) * result + alpha * blended
