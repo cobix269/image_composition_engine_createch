@@ -19,8 +19,7 @@ def validate_structure(config: dict) -> None:
 
 
 def validate_images(config: dict) -> None:
-    """Vérifie que les images sont lisibles et ont les mêmes dimensions."""
-    expected_size = None
+    """Vérifie que les images sont lisibles."""
     for layer_number, layer in enumerate(config["layers"], start=1):
         image_path = layer.get("image")
         if not isinstance(image_path, str) or not image_path:
@@ -29,18 +28,10 @@ def validate_images(config: dict) -> None:
         try:
             with Image.open(SCRIPT_DIR / image_path) as image:
                 image.load()
-                size = image.size
         except (OSError, ValueError, SyntaxError) as error:
             raise ValueError(
                 f"Calque {layer_number} : image '{image_path}' introuvable ou illisible."
             ) from error
-
-        if expected_size is None:
-            expected_size = size
-        elif size != expected_size:
-            raise ValueError(
-                f"Calque {layer_number} : dimensions {size}, attendues {expected_size}."
-            )
 
 
 def validate_opacity(config: dict) -> None:

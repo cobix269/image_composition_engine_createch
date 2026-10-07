@@ -111,4 +111,4 @@ def gaussianBlur(size: int, sigma: float, layer: Layer) -> Layer:
 
 def gaussianblur(layer: Layer, window: int, sigma: float) -> Layer:
     """Conserve le nom et les paramètres utilisés dans le YAML."""
-    return gaussian_blur(window, sigma, layer)
+    return gaussianBlur(window, sigma, layer)
