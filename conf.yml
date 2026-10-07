@@ -2,13 +2,13 @@ layers:
   - image: images/0_photo.jpg
     filters:
       - name: grayscale
-      - name: gaussianblur
+      - name: gaussianBlur
         params:
           window: 5
           sigma: 2.0
   - image: images/1_pop_bike.png
     filters:
-      - name: gaussianblur
+      - name: gaussianBlur
         params:
           window: 10
           sigma: 4.2
