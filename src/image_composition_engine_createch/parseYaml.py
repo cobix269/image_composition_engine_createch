@@ -1,22 +1,14 @@
-import yaml  ## Need uv add pyyaml
-from pprint import pprint
 
-def read_yaml():
-    with open("conf.yml") as f:
-        config = yaml.load(f, yaml.CFullLoader)
-    pprint(config)
-    print("*************")
-    for layer in config["layers"]:
-        print(layer["image"])
-        print(layer["filters"])
-        try:
-            print(layer["blend"])
-            print(layer["opacity"])
-        except:
-            print("")
-        print("-----")
-        # load image
-        # apply filter
-        # save img
+from pathlib import Path
 
-read_yaml()
+import yaml
+
+def read_yaml(path: str | Path | None = None) -> dict:
+    """Renvoie la configuration YAML, avec les calques et leurs filtres."""
+    script_dir = Path(__file__).resolve().parent
+    # Le chemin par défaut ne dépend pas du dossier ouvert dans le terminal.
+    config_path = Path(path) if path is not None else script_dir.parents[1] / "conf.yml"
+    with config_path.open() as f:
+        config = yaml.safe_load(f)
+
+    return config
