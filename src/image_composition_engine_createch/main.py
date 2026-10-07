@@ -13,6 +13,7 @@ for layer_config in config["layers"]:
     layer = Layer(
         src=script_dir / layer_config["image"],
         opacity=layer_config.get("opacity", 1.0),
+        blend=layer_config.get("blend", "normal"),
     )
 
     # Appliquer les filtres dans l'ordre où ils apparaissent dans le YAML.
@@ -22,6 +23,6 @@ for layer_config in config["layers"]:
 
     layers.append(layer)
 
-# Superposer les calques dans le même ordre, avec leur opacité.
+# Superposer les calques dans le même ordre, avec leur blend et leur opacité.
 img = compose(layers)
 show_from_array(img)
