@@ -1,27 +1,37 @@
+"""Charge les calques, applique leurs filtres et affiche la composition."""
+
 from pathlib import Path
 
-from parseYaml import read_yaml
-from classes import Layer
-from utils import show_from_array, compose
+from image_composition_engine_createch.classes import Layer
+from image_composition_engine_createch.parseYaml import read_yaml
+from image_composition_engine_createch.utils import compose, show_from_array
 
-config = read_yaml()
-script_dir = Path(__file__).resolve().parent
-layers = []
 
-for layer_config in config["layers"]:
-    layer = Layer(
-        src=script_dir / layer_config["image"],
-        opacity=layer_config.get("opacity", 1.0),
-        blend=layer_config.get("blend", "normal"),
-    )
+def main() -> None:
+    config = read_yaml()
+    script_dir = Path(__file__).resolve().parent
+    layers = []
 
-    # Appliquer les filtres dans l'ordre où ils apparaissent dans le YAML.
-    for filter_config in layer_config.get("filters", []):
-        filter_function = Layer.FILTERS[filter_config["name"]]
-        layer = filter_function(layer, **filter_config.get("params", {}))
+    for layer_number, layer_config in enumerate(config["layers"], start=1):
+        layer = Layer(
+            src=script_dir / layer_config["image"],
+            opacity=layer_config.get("opacity", 1.0),
+            blend=layer_config.get("blend", "normal"),
+        )
 
-    layers.append(layer)
+        # Chaque filtre reçoit le calque, puis les paramètres du YAML par nom.
+        for filter_config in layer_config.get("filters", []):
+            name = filter_config["name"]
+            filter_function = Layer.FILTERS[name]
+            try:
+                layer = filter_function(layer, **filter_config["params"])
+            except (ValueError, TypeError) as error:
+                raise ValueError(f"Calque {layer_number}, filtre '{name}' : {error}") from error
 
-# Superposer les calques dans le même ordre, avec leur blend et leur opacité.
-img = compose(layers)
-show_from_array(img)
+        layers.append(layer)
+
+    show_from_array(compose(layers))
+
+
+if __name__ == "__main__":
+    main()
