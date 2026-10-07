@@ -2,14 +2,66 @@ from PIL import Image
 import numpy as np
 from dataclasses import dataclass
 import scipy.ndimage
-from filters import grayscale, swapBG, brightness, contrast, blur, black_border, invert, sepia
+from filters import grayscale, swapBG, brightness, contrast, blur, gaussianblur, black_border, invert, sepia
 from utils import array_from_file
-R = 0
-G = 1
-B = 2
-A = 3
+from constants import R,G,B,A
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class FilterParams(BaseModel):
+    """Base commune : types stricts, nombres finis, aucun paramètre inconnu."""
+    model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
+
+
+class BrightnessParams(FilterParams):
+    value: float
+
+
+class ContrastParams(FilterParams):
+    value: float = Field(gt=0, le=5)
+
+
+class BlurParams(FilterParams):
+    radius: int = Field(ge=0)
+
+
+class GaussianBlurParams(FilterParams):
+    window: int = Field(ge=1)
+    sigma: float = Field(gt=0)
+
+
+class BlackBorderParams(FilterParams):
+    thickness: int = Field(default=10, ge=0)
+
 
 class Layer:
+    # Associe chaque nom accepté dans le YAML à sa fonction.
+    FILTERS = {
+        "grayscale": grayscale,
+        "swapBG": swapBG,
+        "brightness": brightness,
+        "contrast": contrast,
+        "blur": blur,
+        "gaussianblur": gaussianblur,
+        "black_border": black_border,
+        "invert": invert,
+        "sepia": sepia,
+    }
+
+    # Associe chaque fonction au modèle qui décrit ses paramètres valides.
+    # FilterParams seul correspond aux filtres sans paramètres.
+    FILTER_PARAMS = {
+        grayscale: FilterParams,
+        swapBG: FilterParams,
+        brightness: BrightnessParams,
+        contrast: ContrastParams,
+        blur: BlurParams,
+        gaussianblur: GaussianBlurParams,
+        black_border: BlackBorderParams,
+        invert: FilterParams,
+        sepia: FilterParams,
+    }
+
     def __init__(self, src: str, opacity: float = 0.1) -> None:
         
         self.pixels = array_from_file(src, "RGBA")
@@ -38,4 +90,3 @@ class Layer:
 
     def _sepia(self) -> Layer:
         return sepia(self)
-
