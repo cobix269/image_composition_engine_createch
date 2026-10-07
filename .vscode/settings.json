@@ -3,5 +3,6 @@
     "code-runner.executorMap": {
         "python": "\"$workspaceRoot/.venv/bin/python\" -u"
     },
-    "code-runner.cwd": "$workspaceRoot"
+    "code-runner.cwd": "$dir",
+    "python.terminal.executeInFileDir": true
 }
