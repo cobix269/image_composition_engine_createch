@@ -57,19 +57,6 @@ def blur(layer: Layer, radius: int) -> Layer:
     layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
 
-def gaussianblur(layer: Layer, window: int, sigma: float) -> Layer:
-    """Flou gaussien horizontal puis vertical, sans modifier l'alpha."""
-    positions = np.arange(window) - (window - 1) / 2
-    kernel = np.exp(-positions**2 / (2 * sigma**2))
-    kernel /= kernel.sum()
-
-    pixels = layer.pixels[:, :, :3].astype(np.float32)
-    pixels = scipy.ndimage.convolve(pixels, kernel[None, :, None], mode="reflect")
-    pixels = scipy.ndimage.convolve(pixels, kernel[:, None, None], mode="reflect")
-    layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
-    return layer
-
-
 def black_border(layer: Layer, thickness: int = 10) -> Layer:
     """Ajoute une bordure noire sans changer la taille de l'image."""
     if thickness < 0:
@@ -104,3 +91,17 @@ def sepia(layer) -> Layer:
 
     layer.pixels = np.clip(np.rint(sepia), 0, 255).astype(np.uint8)
     return layer
+
+
+
+def gaussian_blur(size,sigma,layer) -> Layer: 
+    x = np.arange(-(size // 2), size // 2 + 1)
+    kernel_1D = np.exp(-(x**2) / (2 * sigma**2))
+    kernel_1D = kernel_1D / kernel_1D.sum() # cela permet de normaliser le kernel pour que la somme des valeurs soit égale à 1, ce qui est important pour que l'image ne soit pas trop sombre ou trop claire après la convolution
+    
+    kernel_2D = np.outer(kernel_1D, kernel_1D) #permet de créer comme une symétrie de la gaussienne en 2D à partir de la gaussienne en 1D 
+    pixels = scipy.ndimage.convolve(layer.pixels, kernel_2D[None, :, None], output=np.float32, mode="reflect")
+    pixels = scipy.ndimage.convolve(pixels, kernel_2D[:, None, None], mode="reflect")
+    layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
+    return layer
+        
