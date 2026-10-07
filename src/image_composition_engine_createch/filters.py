@@ -57,19 +57,6 @@ def blur(layer: Layer, radius: int) -> Layer:
     layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
 
-def gaussianblur(layer: Layer, window: int, sigma: float) -> Layer:
-    """Flou gaussien horizontal puis vertical, sans modifier l'alpha."""
-    positions = np.arange(window) - (window - 1) / 2
-    kernel = np.exp(-positions**2 / (2 * sigma**2))
-    kernel /= kernel.sum()
-
-    pixels = layer.pixels[:, :, :3].astype(np.float32)
-    pixels = scipy.ndimage.convolve(pixels, kernel[None, :, None], mode="reflect")
-    pixels = scipy.ndimage.convolve(pixels, kernel[:, None, None], mode="reflect")
-    layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
-    return layer
-
-
 def black_border(layer: Layer, thickness: int = 10) -> Layer:
     """Ajoute une bordure noire sans changer la taille de l'image."""
     if thickness < 0:
@@ -104,3 +91,24 @@ def sepia(layer) -> Layer:
 
     layer.pixels = np.clip(np.rint(sepia), 0, 255).astype(np.uint8)
     return layer
+
+
+
+def gaussian_blur(size: int, sigma: float, layer: Layer) -> Layer:
+    """Applique une convolution gaussienne 2D sans modifier le canal alpha."""
+    x = np.arange(size) - (size - 1) / 2
+    kernel_1D = np.exp(-(x**2) / (2 * sigma**2))
+    # Normaliser le noyau conserve la luminosité d'une couleur uniforme.
+    kernel_1D /= kernel_1D.sum()
+    kernel_2D = np.outer(kernel_1D, kernel_1D)
+
+    # Le dernier axe de taille 1 évite de mélanger les canaux RGB.
+    pixels = layer.pixels[:, :, :3].astype(np.float32)
+    pixels = scipy.ndimage.convolve(pixels, kernel_2D[:, :, None], mode="reflect")
+    layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
+    return layer
+
+
+def gaussianblur(layer: Layer, window: int, sigma: float) -> Layer:
+    """Conserve le nom et les paramètres utilisés dans le YAML."""
+    return gaussian_blur(window, sigma, layer)
