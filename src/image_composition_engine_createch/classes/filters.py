@@ -5,7 +5,7 @@ from pydantic import Field
 from pydantic.dataclasses import dataclass
 from scipy.ndimage import convolve
 
-from .classes import Filter, Layer
+from .base import Filter
 
 
 @dataclass
@@ -106,7 +106,7 @@ class Sepia(Filter):
         return np.clip(image @ matrix.T, 0, 1)
 
 
-Layer.FILTERS.update({
+FILTERS = {
     "normal": Normal,
     "grayscale": Grayscale,
     "swapBG": SwapBG,
@@ -119,4 +119,4 @@ Layer.FILTERS.update({
     "black_border": BlackBorder,
     "invert": Invert,
     "sepia": Sepia,
-})
+}

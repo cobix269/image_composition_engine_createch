@@ -1,37 +1,52 @@
-"""Chargement, affichage et superposition d'images avec des pixels de 0 à 255."""
+"""Création des calques, application des filtres et composition."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
-from PIL import Image
 
-from .blend import blendColors
-
-# Layer sert uniquement aux annotations : cet import évite une dépendance
-# circulaire à l'exécution, puisque classes.py importe aussi utils.py.
-if TYPE_CHECKING:
-    from .classes import Layer
+from ..classes import Layer
 
 
-def array_from_file(path: str | Path, mode: str = "RGB") -> np.ndarray:
-    """Charge une image RGB ou RGBA en uint8 (0 à 255)."""
-    # Le tableau garde ses pixels en mémoire après la fermeture du fichier.
-    with Image.open(path) as image:
-        return np.array(image.convert(mode))
+def applyFilters(layer: Layer, filterConfigs: list[dict], layerNumber: int) -> Layer:
+    """Applique les filtres dans l'ordre et précise le contexte des erreurs."""
+    for filterConfig in filterConfigs:
+        name = filterConfig["name"]
+        filterClass = layer.FILTERS[name]
+        try:
+            imageFilter = filterClass(**filterConfig.get("params", {}))
+            layer.applyFilter(imageFilter)
+        except (ValueError, TypeError) as error:
+            raise ValueError(f"Calque {layerNumber}, filtre '{name}' : {error}") from error
+    return layer
 
 
-def array_to_image(arr: np.ndarray) -> Image.Image:
-    """Convertit des pixels de 0 à 255 en image RGB ou RGBA."""
-    # Arrondir et borner avant la conversion évite les débordements en uint8.
-    return Image.fromarray(np.clip(np.rint(arr), 0, 255).astype(np.uint8))
+def createLayers(config: dict, basePath: str | Path) -> list[Layer]:
+    """Crée les calques du YAML validé, avec leurs filtres, dans le même ordre."""
+    basePath = Path(basePath)
+    layers = []
+    for layerNumber, layerConfig in enumerate(config["layers"], start=1):
+        layer = Layer(
+            src=basePath / layerConfig["image"],
+            opacity=layerConfig.get("opacity", 1.0),
+            blend=layerConfig.get("blend", "normal"),
+        )
+        applyFilters(layer, layerConfig.get("filters", []), layerNumber)
+        layers.append(layer)
+    return layers
 
 
-def show_from_array(arr: np.ndarray) -> None:
-    """Ouvre l'image dans la visionneuse du système via Pillow."""
-    array_to_image(arr).show()
+def blendColors(background: np.ndarray, foreground: np.ndarray, mode: str) -> np.ndarray:
+    """Mélange les couleurs RGB entre 0 et 255 ; l'opacité reste dans compose."""
+    try:
+        imageBlend = Layer.BLENDS[mode]()
+    except KeyError as error:
+        raise ValueError(f"Mode de blend inconnu : {mode!r}.") from error
+
+    background = background.astype(np.float32) / 255
+    foreground = foreground.astype(np.float32) / 255
+    return np.clip(imageBlend.apply(background, foreground), 0, 1) * 255
 
 
 def compose(layers: list[Layer]) -> np.ndarray:

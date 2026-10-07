@@ -14,21 +14,27 @@ Binôme de Binôme : Raphael De Rouvre et Paco Tibherin
 Le moteur lit `conf.yml` et affiche la composition. Les chemins d'images du
 YAML sont relatifs à `src/image_composition_engine_createch`.
 
-## Organisation et utilitaires
+## Organisation
 
-- `main.py` orchestre le chargement, les filtres dans l'ordre et la composition.
-- `parseYaml.py` lit le YAML et valide la configuration.
-- `classes.py` contient `Filter`, ses règles Pydantic communes, `Layer` et la validation du blend.
-- `imported_filters.py` contient les classes de l'autre groupe.
-- `filters.py` contient les traitements des pixels ; `blend.py` contient les modes de fusion.
-- `utils.py` regroupe les opérations communes ci-dessous.
+```text
+src/image_composition_engine_createch/
+├── classes/
+│   ├── base.py             # Filter, Blend et règles Pydantic
+│   ├── layer.py            # Layer et registres
+│   ├── filters.py          # Nos filtres
+│   ├── importedFilters.py  # Filtres de l'autre groupe
+│   └── blends.py           # Modes de fusion et validation Pydantic
+├── utils/
+│   ├── imageIO.py          # Lecture, conversion et affichage des images
+│   ├── parseYaml.py        # Lecture et validation du YAML
+│   └── composition.py      # Création des calques et composition
+└── main.py                 # Point d'entrée
+```
 
-| Fonction de `utils.py` | Utilisation |
-| --- | --- |
-| `array_from_file` | `Layer` charge son image en RGBA. |
-| `compose` | `main` superpose les calques. |
-| `show_from_array` | `main` affiche le résultat. |
-| `array_to_image` | `show_from_array` convertit le tableau pour Pillow. |
+`main.py` lit le YAML, appelle `createLayers()`, puis affiche `compose(layers)`.
+Les registres `FILTERS` et `BLENDS` sont des dictionnaires explicites dans leurs
+modules, accessibles via `Layer.FILTERS` et `Layer.BLENDS`. Les traitements
+ne dépendent pas de `Layer`, et les imports n'ont aucun enregistrement caché.
 
 ## Échanger un filtre
 
@@ -40,15 +46,10 @@ pixels uint8 de 0 à 255 et conserve l'alpha, l'opacité et le mode de blend.
 
 Pour importer un filtre d'un autre groupe :
 
-1. Copier son fichier dans `src/image_composition_engine_createch/` et adapter
-   ses classes au format ci-dessous : une dataclass Pydantic héritant de `Filter`.
-2. Dans son module, importer `Filter` et `Layer` depuis `.classes`, puis ajouter
-   `Layer.FILTERS["monFiltre"] = MonFiltre` après la définition de la classe.
-   Charger ce module en fin de `classes.py`, comme `filters` et `imported_filters`.
-3. Utiliser `name: monFiltre` dans le YAML, avec les paramètres du constructeur
-   dans `params`.
+1. Ajouter la classe dans `classes/importedFilters.py`, au format ci-dessous.
+2. Ajouter `"monFiltre": MonFiltre` dans le dictionnaire `FILTERS` de ce fichier.
+3. Utiliser `name: monFiltre` dans le YAML, avec les arguments dans `params`.
 
-Il n'est pas nécessaire d'ajouter une méthode à `Layer` ou de changer le moteur.
 Les paramètres sont des attributs de dataclass avec leurs contraintes Pydantic.
 Le décorateur génère le constructeur et valide les arguments. La configuration
 héritée de `Filter` impose des types stricts, des nombres finis et refuse les
@@ -59,7 +60,7 @@ le numéro du calque, le nom du filtre et le paramètre concerné.
 import numpy as np
 from pydantic import Field
 from pydantic.dataclasses import dataclass
-from .classes import Filter
+from .base import Filter
 
 
 @dataclass
@@ -114,7 +115,7 @@ bornées entre 0 et 1 avant l'application de l'opacité.
 
 Le calcul suit deux étapes :
 
-1. `blendColors(fond, dessus, mode)`, dans `blend.py`, calcule la couleur mélangée. Les pixels
+1. `blendColors(fond, dessus, mode)`, dans `utils/composition.py`, calcule la couleur mélangée. Les pixels
    sont convertis en flottants entre 0 et 1 pour les formules, puis remis entre
    0 et 255. Par exemple, `multiply` multiplie les deux couleurs normalisées ;
    `lighten` garde la plus grande valeur de chaque canal R, G et B.
