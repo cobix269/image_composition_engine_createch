@@ -94,7 +94,7 @@ def sepia(layer) -> Layer:
 
 
 
-def gaussian_blur(size: int, sigma: float, layer: Layer) -> Layer:
+def gaussianBlur(size: int, sigma: float, layer: Layer) -> Layer:
     """Applique une convolution gaussienne 2D sans modifier le canal alpha."""
     x = np.arange(size) - (size - 1) / 2
     kernel_1D = np.exp(-(x**2) / (2 * sigma**2))
