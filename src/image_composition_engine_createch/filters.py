@@ -1,6 +1,13 @@
-from .classes import Layer
-from .constants import R,G,B,A
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+# Layer sert aux annotations ; l'importer à l'exécution créerait un cycle.
+if TYPE_CHECKING:
+    from classes import Layer
+from constants import R,G,B,A
 import numpy as np
+import scipy
 
 def grayscale(layer: Layer) -> Layer:
     """Transforme l'image en noir et blanc."""
@@ -49,6 +56,19 @@ def blur(layer: Layer, radius: int) -> Layer:
     pixels = scipy.ndimage.convolve(pixels, kernel[:, None, None], mode="reflect")
     layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
+
+def gaussianblur(layer: Layer, window: int, sigma: float) -> Layer:
+    """Flou gaussien horizontal puis vertical, sans modifier l'alpha."""
+    positions = np.arange(window) - (window - 1) / 2
+    kernel = np.exp(-positions**2 / (2 * sigma**2))
+    kernel /= kernel.sum()
+
+    pixels = layer.pixels[:, :, :3].astype(np.float32)
+    pixels = scipy.ndimage.convolve(pixels, kernel[None, :, None], mode="reflect")
+    pixels = scipy.ndimage.convolve(pixels, kernel[:, None, None], mode="reflect")
+    layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
+    return layer
+
 
 def black_border(layer: Layer, thickness: int = 10) -> Layer:
     """Ajoute une bordure noire sans changer la taille de l'image."""
