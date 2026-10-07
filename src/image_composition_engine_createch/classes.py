@@ -10,10 +10,11 @@ B = 2
 A = 3
 
 class Layer:
-    def __init__(self, src: str, opacity: float = 0.1) -> None:
+    def __init__(self, src: str, opacity: float = 0.1, blend: str = "normal") -> None:
         
         self.pixels = array_from_file(src, "RGBA")
         self.opacity: float = opacity
+        self.blend: str = blend
 
     def _grayscale(self) -> Layer:
         return grayscale(self)
@@ -38,4 +39,3 @@ class Layer:
 
     def _sepia(self) -> Layer:
         return sepia(self)
-
