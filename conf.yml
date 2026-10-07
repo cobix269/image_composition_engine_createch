@@ -16,5 +16,5 @@ layers:
     opacity: 0.32
   - image: images/2_wall.png
     filters: []
-    blend: lighten
+    blend: normal
     opacity: 1.0
