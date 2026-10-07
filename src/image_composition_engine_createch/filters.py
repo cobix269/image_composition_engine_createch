@@ -94,21 +94,16 @@ def sepia(layer) -> Layer:
 
 
 
-def gaussianBlur(size: int, sigma: float, layer: Layer) -> Layer:
+def gaussianBlur(layer: Layer, window: int, sigma: float) -> Layer:
     """Applique une convolution gaussienne 2D sans modifier le canal alpha."""
-    x = np.arange(size) - (size - 1) / 2
-    kernel_1D = np.exp(-(x**2) / (2 * sigma**2))
+    x = np.arange(window) - (window - 1) / 2
+    kernel1D = np.exp(-(x**2) / (2 * sigma**2))
     # Normaliser le noyau conserve la luminosité d'une couleur uniforme.
-    kernel_1D /= kernel_1D.sum()
-    kernel_2D = np.outer(kernel_1D, kernel_1D)
+    kernel1D /= kernel1D.sum()
+    kernel2D = np.outer(kernel1D, kernel1D)
 
     # Le dernier axe de taille 1 évite de mélanger les canaux RGB.
     pixels = layer.pixels[:, :, :3].astype(np.float32)
-    pixels = scipy.ndimage.convolve(pixels, kernel_2D[:, :, None], mode="reflect")
+    pixels = scipy.ndimage.convolve(pixels, kernel2D[:, :, None], mode="reflect")
     layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
-
-
-def gaussianBlur(layer: Layer, window: int, sigma: float) -> Layer:
-    """Conserve le nom et les paramètres utilisés dans le YAML."""
-    return gaussianBlur(window, sigma, layer)
