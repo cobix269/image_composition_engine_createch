@@ -2,7 +2,7 @@ from PIL import Image
 import numpy as np
 from dataclasses import dataclass
 import scipy.ndimage
-from filters import grayscale, swapBG, brightness, contrast, blur, gaussianblur, black_border, invert, sepia, gaussian_blur
+from filters import grayscale, swapBG, brightness, contrast, blur, gaussianBlur, black_border, invert, sepia
 from utils import array_from_file
 from constants import R,G,B,A
 from pydantic import BaseModel, ConfigDict, Field
@@ -42,7 +42,7 @@ class Layer:
         "brightness": brightness,
         "contrast": contrast,
         "blur": blur,
-        "gaussianblur": gaussianblur,
+        "gaussianBlur": gaussianBlur,
         "black_border": black_border,
         "invert": invert,
         "sepia": sepia,
@@ -56,7 +56,7 @@ class Layer:
         brightness: BrightnessParams,
         contrast: ContrastParams,
         blur: BlurParams,
-        gaussianblur: GaussianBlurParams,
+        gaussianBlur: GaussianBlurParams,
         black_border: BlackBorderParams,
         invert: FilterParams,
         sepia: FilterParams,
@@ -91,5 +91,5 @@ class Layer:
     def _sepia(self) -> Layer:
         return sepia(self)
     
-    def _gaussianBlur(self) -> Layer:
-        return gaussianblur(self)
+    def _gaussianBlur(self, window: int, sigma: float) -> Layer:
+        return gaussianBlur(self, window, sigma)
