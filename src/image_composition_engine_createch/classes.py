@@ -1,22 +1,28 @@
+"""Calques, registre des classes de filtres et validation des modes de fusion."""
+
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+import numpy as np
+from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic.dataclasses import dataclass as validatedDataclass
 
 from .blend import blendFunctions
-from .filters import (
-    black_border,
-    blur,
-    brightness,
-    contrast,
-    gaussianBlur,
-    grayscale,
-    invert,
-    sepia,
-    swapBG,
-)
 from .utils import array_from_file
+
+
+@validatedDataclass(config=ConfigDict(strict=True, extra="forbid", allow_inf_nan=False))
+class Filter(ABC):
+    """Les dataclasses filles héritent des règles de validation Pydantic."""
+
+    @abstractmethod
+    def apply(self, image: np.ndarray) -> np.ndarray:
+        """Reçoit une image RGB en flottants entre 0 et 1 et renvoie une image RGB."""
+        pass
 
 
 class BlendParams(BaseModel):
@@ -33,64 +39,30 @@ class BlendParams(BaseModel):
         return mode
 
 
-class FilterParams(BaseModel):
-    """Base commune : types stricts, nombres finis, aucun paramètre inconnu."""
-    model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
-
-
-class BrightnessParams(FilterParams):
-    value: float = Field(ge=0)
-
-
-class ContrastParams(FilterParams):
-    value: float = Field(gt=0, le=5)
-
-
-class BlurParams(FilterParams):
-    radius: int = Field(ge=0)
-
-
-class GaussianBlurParams(FilterParams):
-    window: int = Field(ge=1)
-    sigma: float = Field(gt=0)
-
-
-class BlackBorderParams(FilterParams):
-    thickness: int = Field(default=10, ge=0)
-
-
+@dataclass(eq=False)
 class Layer:
-    """Calque RGBA dont les filtres modifient les pixels et renvoient le calque."""
+    """Calque RGBA ; les filtres travaillent uniquement sur ses couleurs RGB."""
 
-    # Associe chaque nom accepté dans le YAML à sa fonction.
-    FILTERS = {
-        "grayscale": grayscale,
-        "swapBG": swapBG,
-        "brightness": brightness,
-        "contrast": contrast,
-        "blur": blur,
-        "gaussianBlur": gaussianBlur,
-        "black_border": black_border,
-        "invert": invert,
-        "sepia": sepia,
-    }
+    src: str | Path
+    opacity: float = 1.0
+    blend: str = "normal"
+    pixels: np.ndarray = field(init=False, repr=False)
 
-    # Associe chaque fonction au modèle qui décrit ses paramètres valides.
-    # FilterParams seul correspond aux filtres sans paramètres.
-    # Un filtre échangé peut être enregistré sans modèle de validation.
-    FILTER_PARAMS = {
-        grayscale: FilterParams,
-        swapBG: FilterParams,
-        brightness: BrightnessParams,
-        contrast: ContrastParams,
-        blur: BlurParams,
-        gaussianBlur: GaussianBlurParams,
-        black_border: BlackBorderParams,
-        invert: FilterParams,
-        sepia: FilterParams,
-    }
+    FILTERS: ClassVar[dict[str, type[Filter]]] = {}
 
-    def __init__(self, src: str | Path, opacity: float = 1.0, blend: str = "normal") -> None:
-        self.pixels = array_from_file(src, "RGBA")
-        self.opacity: float = opacity
-        self.blend: str = BlendParams(blend=blend).blend
+    def __post_init__(self) -> None:
+        """Charge les pixels après l'affectation automatique des attributs."""
+        self.pixels = array_from_file(self.src, "RGBA")
+        self.blend = BlendParams(blend=self.blend).blend
+
+    def applyFilter(self, imageFilter: Filter) -> Layer:
+        """Applique une instance de filtre et conserve l'alpha du calque."""
+        image = self.pixels[:, :, :3].astype(np.float32) / 255
+        result = imageFilter.apply(image)
+        self.pixels[:, :, :3] = np.clip(np.rint(result * 255), 0, 255).astype(np.uint8)
+        return self
+
+
+# Charger les filtres après la définition des bases pour éviter les imports circulaires.
+# Chaque module enregistre ses classes dans Layer.FILTERS.
+from . import filters, imported_filters

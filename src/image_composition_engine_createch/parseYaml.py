@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from pathlib import Path
 
 import yaml
@@ -56,21 +57,22 @@ def validate_blend_modes(config: dict) -> None:
 
 
 def validate_filter_params(name: str, params: dict, layer_number: int) -> dict:
-    """Valide les paramètres si le filtre possède un modèle Pydantic."""
+    """Instancie la dataclass Pydantic et récupère ses paramètres validés."""
     if not isinstance(params, dict):
         raise ValueError(f"Calque {layer_number}, filtre '{name}' : params doit être un dictionnaire.")
-    model = Layer.FILTER_PARAMS.get(Layer.FILTERS[name])
-    if model is None:
-        return params
     try:
-        validated = model.model_validate(params)
+        imageFilter = Layer.FILTERS[name](**params)
     except ValidationError as error:
         detail = error.errors()[0]
         parameter = ".".join(map(str, detail["loc"])) or "params"
         raise ValueError(
             f"Calque {layer_number}, filtre '{name}', {parameter} : {detail['msg']}."
         ) from error
-    return validated.model_dump()
+    except TypeError as error:
+        raise ValueError(
+            f"Calque {layer_number}, filtre '{name}' : {error}."
+        ) from error
+    return asdict(imageFilter)
 
 
 def validate_filters(config: dict) -> None:

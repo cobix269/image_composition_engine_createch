@@ -1,10 +1,16 @@
 """Charge les calques, applique leurs filtres et affiche la composition."""
 
 from pathlib import Path
+import sys
 
-from image_composition_engine_createch.classes import Layer
-from image_composition_engine_createch.parseYaml import read_yaml
-from image_composition_engine_createch.utils import compose, show_from_array
+# Autoriser aussi `python main.py` depuis le dossier du code.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "image_composition_engine_createch"
+
+from .classes import Layer
+from .parseYaml import read_yaml
+from .utils import compose, show_from_array
 
 
 def main() -> None:
@@ -19,12 +25,13 @@ def main() -> None:
             blend=layer_config.get("blend", "normal"),
         )
 
-        # Chaque filtre reçoit le calque, puis les paramètres du YAML par nom.
+        # Créer les instances dans l'ordre du YAML, puis appliquer chaque filtre.
         for filter_config in layer_config.get("filters", []):
             name = filter_config["name"]
-            filter_function = Layer.FILTERS[name]
+            filterClass = Layer.FILTERS[name]
             try:
-                layer = filter_function(layer, **filter_config["params"])
+                imageFilter = filterClass(**filter_config["params"])
+                layer.applyFilter(imageFilter)
             except (ValueError, TypeError) as error:
                 raise ValueError(f"Calque {layer_number}, filtre '{name}' : {error}") from error
 

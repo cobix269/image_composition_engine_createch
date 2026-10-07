@@ -18,7 +18,8 @@ YAML sont relatifs à `src/image_composition_engine_createch`.
 
 - `main.py` orchestre le chargement, les filtres dans l'ordre et la composition.
 - `parseYaml.py` lit le YAML et valide la configuration.
-- `classes.py` contient `Layer`, les registres de filtres et les modèles de validation.
+- `classes.py` contient `Filter`, ses règles Pydantic communes, `Layer` et la validation du blend.
+- `imported_filters.py` contient les classes de l'autre groupe.
 - `filters.py` contient les traitements des pixels ; `blend.py` contient les modes de fusion.
 - `utils.py` regroupe les opérations communes ci-dessous.
 
@@ -31,32 +32,52 @@ YAML sont relatifs à `src/image_composition_engine_createch`.
 
 ## Échanger un filtre
 
-Une fonction reçoit le calque en premier argument,
-travaille sur `layer.pixels` et renvoie le calque. Les pixels sont un tableau NumPy
-RGBA de forme `(hauteur, largeur, 4)`, en `uint8` entre 0 et 255. Les filtres de
-couleur conservent l'alpha, les dimensions, l'opacité et le mode de blend.
-Un filtre peut modifier les pixels en place ou renvoyer un nouveau calque ; le moteur récupère toujours sa valeur de retour.
+Une classe de filtre reçoit ses paramètres au constructeur et expose
+`apply(image)`. L'image reçue est un tableau NumPy RGB de forme
+`(hauteur, largeur, 3)`, en flottants entre 0 et 1. La méthode renvoie une image
+RGB de mêmes dimensions. `Layer.applyFilter()` gère la conversion avec nos
+pixels uint8 de 0 à 255 et conserve l'alpha, l'opacité et le mode de blend.
 
 Pour importer un filtre d'un autre groupe :
 
-1. Copier son fichier dans `src/image_composition_engine_createch/`.
-2. Dans `classes.py`, ajouter par exemple `from .filtres_groupe import mon_filtre`,
-   puis l'entrée `"mon_filtre": mon_filtre` dans `Layer.FILTERS`.
-3. Utiliser `name: mon_filtre` dans le YAML, avec ses paramètres dans `params`.
+1. Copier son fichier dans `src/image_composition_engine_createch/` et adapter
+   ses classes au format ci-dessous : une dataclass Pydantic héritant de `Filter`.
+2. Dans son module, importer `Filter` et `Layer` depuis `.classes`, puis ajouter
+   `Layer.FILTERS["monFiltre"] = MonFiltre` après la définition de la classe.
+   Charger ce module en fin de `classes.py`, comme `filters` et `imported_filters`.
+3. Utiliser `name: monFiltre` dans le YAML, avec les paramètres du constructeur
+   dans `params`.
 
 Il n'est pas nécessaire d'ajouter une méthode à `Layer` ou de changer le moteur.
-L'ajout dans `Layer.FILTER_PARAMS` est facultatif : sans modèle Pydantic, les
-paramètres du YAML sont transmis tels quels. Les filtres du projet gardent leur
-validation stricte.
+Les paramètres sont des attributs de dataclass avec leurs contraintes Pydantic.
+Le décorateur génère le constructeur et valide les arguments. La configuration
+héritée de `Filter` impose des types stricts, des nombres finis et refuse les
+paramètres inconnus. `parseYaml.py` transforme les erreurs en `ValueError` avec
+le numéro du calque, le nom du filtre et le paramètre concerné.
 
-Le moteur utilise `fonction(layer, **params)` : l'ordre des paramètres nommés
-n'a pas d'importance. Le YAML doit simplement reprendre les noms attendus par
-la fonction importée. Une signature différente peut être adaptée lors de l'exercice.
-Un filtre n'a pas besoin d'importer notre classe `Layer` à l'exécution : il suffit
-qu'il utilise les attributs du contrat. Cela évite aussi les imports circulaires.
-Les dépendances Python de son fichier doivent être disponibles.
-Notre `filters.py` n'importe à l'exécution que NumPy et SciPy ; il peut donc
-être copié dans un autre groupe respectant le même contrat de calque.
+```python
+import numpy as np
+from pydantic import Field
+from pydantic.dataclasses import dataclass
+from .classes import Filter
+
+
+@dataclass
+class MonFiltre(Filter):
+    value: float = Field(default=1.0, ge=0)
+
+    def apply(self, image: np.ndarray) -> np.ndarray:
+        return np.clip(image * self.value, 0, 1)
+```
+
+Le moteur utilise `ClasseFiltre(**params)`, puis `layer.applyFilter(instance)`.
+Les classes n'ont pas besoin de connaître `Layer`, ce qui évite les imports
+circulaires. Les filtres importés sont enregistrés sous des noms comme
+`importedGaussianBlur` et `importedSepia`, sans adaptateur.
+
+`blur` est le flou moyen et prend `radius`. `gaussianBlur` prend `window` et
+`sigma`. Pour les classes importées, `importedBlur` prend `taille` (5 par défaut)
+et `importedBlackBorder` prend `border_size`.
 
 `brightness(value)` multiplie les couleurs : `0` donne du noir, `1` conserve
 l'image, une valeur supérieure à `1` éclaircit. `contrast(value)` agit autour
