@@ -1,3 +1,5 @@
+"""Filtres de couleur : seuls les canaux RGB changent, l'alpha est conservé."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -17,7 +19,7 @@ def grayscale(layer: Layer) -> Layer:
         + 0.114 * layer.pixels[:, :, B]
     )
     gray = np.clip(np.rint(gray), 0, 255).astype(np.uint8)
-    layer.pixels = np.stack((gray, gray, gray, layer.pixels[:, :, A]), axis=2)
+    layer.pixels[:, :, :3] = gray[:, :, None]
     return layer
 
 def swapBG(layer: Layer) -> Layer:
@@ -27,9 +29,9 @@ def swapBG(layer: Layer) -> Layer:
 
 def brightness(layer: Layer, value: float) -> Layer:
     """Change la luminosité de l'image."""
-    pixels = layer.pixels.astype(np.float32)
+    pixels = layer.pixels[:, :, :3].astype(np.float32)
     pixels += (1 - value) * (255 // 2 - pixels)
-    layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
+    layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
 
 def contrast(layer: Layer, value: float) -> Layer:
@@ -37,9 +39,9 @@ def contrast(layer: Layer, value: float) -> Layer:
     if value <= 0 or value >5 :
         raise ValueError("Le contraste doit être entre 0 et 5")
     
-    pixels = layer.pixels.astype(np.float32)
+    pixels = layer.pixels[:, :, :3].astype(np.float32)
     pixels += (1 - value) * (255 // 2 - pixels)
-    layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
+    layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     
     return layer
 
@@ -52,9 +54,10 @@ def blur(layer: Layer, radius: int) -> Layer:
 
     size = 2 * radius + 1
     kernel = np.ones(size, dtype=np.float32) / size
-    pixels = scipy.ndimage.convolve(layer.pixels, kernel[None, :, None], output=np.float32, mode="reflect")
+    pixels = layer.pixels[:, :, :3].astype(np.float32)
+    pixels = scipy.ndimage.convolve(pixels, kernel[None, :, None], mode="reflect")
     pixels = scipy.ndimage.convolve(pixels, kernel[:, None, None], mode="reflect")
-    layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
+    layer.pixels[:, :, :3] = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
     return layer
 
 def black_border(layer: Layer, thickness: int = 10) -> Layer:
@@ -64,22 +67,20 @@ def black_border(layer: Layer, thickness: int = 10) -> Layer:
     if thickness == 0:
         return layer
 
-    layer.pixels[:thickness, :, :] = 0
-    layer.pixels[-thickness:, :, :] = 0
-    layer.pixels[:, :thickness, :] = 0
-    layer.pixels[:, -thickness:, :] = 0
+    layer.pixels[:thickness, :, :3] = 0
+    layer.pixels[-thickness:, :, :3] = 0
+    layer.pixels[:, :thickness, :3] = 0
+    layer.pixels[:, -thickness:, :3] = 0
     return layer
 
 def invert(layer) -> Layer:
-    """Inverse les couleurs"""
-    pixels = layer.pixels.astype(np.float32)
-    pixels = abs((pixels - 255))
-    layer.pixels = np.clip(np.rint(pixels), 0, 255).astype(np.uint8)
+    """Inverse les couleurs sans inverser la transparence."""
+    layer.pixels[:, :, :3] = 255 - layer.pixels[:, :, :3]
     return layer
 
 def sepia(layer) -> Layer:
     """Applique la matrice de transformation sépia classique."""
-    pixels = layer.pixels.astype(np.float32)
+    pixels = layer.pixels[:, :, :3].astype(np.float32)
     red = pixels[:, :, R]
     green = pixels[:, :, G]
     blue = pixels[:, :, B]
@@ -89,7 +90,7 @@ def sepia(layer) -> Layer:
     sepia[:, :, G] = 0.349 * red + 0.686 * green + 0.168 * blue
     sepia[:, :, B] = 0.272 * red + 0.534 * green + 0.131 * blue
 
-    layer.pixels = np.clip(np.rint(sepia), 0, 255).astype(np.uint8)
+    layer.pixels[:, :, :3] = np.clip(np.rint(sepia), 0, 255).astype(np.uint8)
     return layer
 
 
