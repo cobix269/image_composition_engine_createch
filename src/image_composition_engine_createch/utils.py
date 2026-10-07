@@ -41,13 +41,6 @@ def array_from_file_RGBA(path: str) -> np.ndarray:
     return array_from_file(path, "RGBA")
 
 
-BLEND_MODES = (
-    "normal", "darken", "multiply", "color_burn", "linear_burn", "lighten",
-    "screen", "color_dodge", "linear_dodge", "overlay", "soft_light",
-    "hard_light", "vivid_light", "linear_light", "pin_light", "difference", "exclusion",
-)
-
-
 def _color_burn(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
     # Si le diviseur vaut zéro, le résultat est noir (sauf sur un fond blanc).
     ratio = np.divide(1 - background, foreground,
@@ -119,8 +112,7 @@ def blend_colors(background: np.ndarray, foreground: np.ndarray, mode: str) -> n
     elif mode == "exclusion":
         blended = background + foreground - 2 * background * foreground
     else:
-        available = ", ".join(BLEND_MODES)
-        raise ValueError(f"Mode de blend inconnu : {mode!r}. Modes disponibles : {available}.")
+        raise ValueError(f"Mode de blend inconnu : {mode!r}.")
 
     # Borner avant l'opacité empêche un mode de produire des couleurs hors plage.
     return np.clip(blended, 0, 1) * 255

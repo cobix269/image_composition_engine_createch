@@ -6,6 +6,18 @@ from filters import grayscale, swapBG, brightness, contrast, blur, gaussianBlur,
 from utils import array_from_file
 from constants import R,G,B,A
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+
+class BlendParams(BaseModel):
+    """Définit les modes de fusion acceptés et le mode par défaut."""
+    model_config = ConfigDict(strict=True, extra="forbid")
+    blend: Literal[
+        "normal", "darken", "multiply", "color_burn", "linear_burn",
+        "lighten", "screen", "color_dodge", "linear_dodge", "overlay",
+        "soft_light", "hard_light", "vivid_light", "linear_light",
+        "pin_light", "difference", "exclusion",
+    ] = "normal"
 
 
 class FilterParams(BaseModel):
@@ -66,7 +78,7 @@ class Layer:
         
         self.pixels = array_from_file(src, "RGBA")
         self.opacity: float = opacity
-        self.blend: str = blend
+        self.blend: str = BlendParams(blend=blend).blend
 
     def _grayscale(self) -> Layer:
         return grayscale(self)
