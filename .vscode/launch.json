@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Image Composition Engine",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "image_composition_engine_createch.main",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

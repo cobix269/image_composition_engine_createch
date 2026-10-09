@@ -1,8 +1,6 @@
 {
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "code-runner.executorMap": {
-        "python": "\"$workspaceRoot/.venv/bin/python\" -u"
-    },
-    "code-runner.cwd": "$dir",
-    "python.terminal.executeInFileDir": true
+        "python": "cd \"$workspaceRoot\" && \"$workspaceRoot/.venv/bin/python\" -u -m image_composition_engine_createch.main"
+    }
 }

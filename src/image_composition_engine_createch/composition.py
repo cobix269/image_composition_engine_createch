@@ -4,17 +4,17 @@ from pathlib import Path
 
 import numpy as np
 
-from ..classes.layer import Layer
-from ..registry import BLENDS
-from .parseYaml import LayerConfig
+from .blends import BLENDS
+from .config import LayerConfig
+from .layer import Layer
 
 
-def createLayers(configs: list[LayerConfig], imagesDir: Path) -> list[Layer]:
-    """Charge chaque image et lui applique ses filtres, dans l'ordre du YAML."""
+def createLayers(configs: list[LayerConfig], directory: Path) -> list[Layer]:
+    """Charge chaque image, relative à `directory`, et lui applique ses filtres."""
     layers = []
     for number, config in enumerate(configs, start=1):
         try:
-            layer = Layer.fromFile(imagesDir / config.image, config.opacity, config.blend)
+            layer = Layer.fromFile(directory / config.image, config.opacity, config.blend)
             for filterConfig in config.filters:
                 layer.applyFilter(filterConfig.create())
         except (OSError, ValueError) as error:

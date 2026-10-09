@@ -6,8 +6,9 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from ..classes.base import Filter
-from ..registry import BLENDS, FILTERS
+from .blends import BLENDS
+from .filters import FILTERS
+from .filters.base import Filter
 
 
 class FilterConfig(BaseModel):

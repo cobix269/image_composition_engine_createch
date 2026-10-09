@@ -5,8 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-from ..utils.imageIO import arrayFromFile
-from .base import Filter
+from .filters.base import Filter
+from .imageIO import arrayFromFile
 
 
 @dataclass(eq=False)

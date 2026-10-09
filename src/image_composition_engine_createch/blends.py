@@ -2,6 +2,7 @@
 
 Chaque fonction reçoit le fond et le calque du dessus, en RGB entre 0 et 1,
 et renvoie leur mélange. `compose` borne ce mélange puis applique l'opacité.
+Pour ajouter un mode, écrire sa fonction puis lui donner un nom dans `BLENDS`.
 """
 
 import numpy as np
@@ -97,3 +98,25 @@ def difference(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
 
 def exclusion(background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
     return background + foreground - 2 * background * foreground
+
+
+# Noms utilisables pour `blend` dans le YAML.
+BLENDS = {
+    "normal": normal,
+    "darken": darken,
+    "multiply": multiply,
+    "color_burn": colorBurn,
+    "linear_burn": linearBurn,
+    "lighten": lighten,
+    "screen": screen,
+    "color_dodge": colorDodge,
+    "linear_dodge": linearDodge,
+    "overlay": overlay,
+    "soft_light": softLight,
+    "hard_light": hardLight,
+    "vivid_light": vividLight,
+    "linear_light": linearLight,
+    "pin_light": pinLight,
+    "difference": difference,
+    "exclusion": exclusion,
+}

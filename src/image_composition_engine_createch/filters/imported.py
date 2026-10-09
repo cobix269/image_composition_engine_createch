@@ -2,7 +2,7 @@
 
 Ce fichier n'est pas retouché, pour pouvoir le remplacer par leur prochaine
 version : seul l'import de `Filter` est adapté. Les noms de ces filtres dans
-le YAML sont définis dans registry.py.
+le YAML sont définis dans filters/__init__.py.
 """
 
 import numpy as np

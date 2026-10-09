@@ -13,25 +13,30 @@ uv run image-composition-engine-createch
 ```
 
 Le moteur lit `conf.yml`, applique les filtres de chaque calque, superpose les
-calques et affiche le résultat.
+calques et affiche le résultat. Dans VS Code, F5 (configuration « Image
+Composition Engine ») et le bouton de Code Runner lancent la même commande.
 
 ## Organisation
 
 ```text
+conf.yml                    # Composition à afficher
+images/                     # Images utilisées par conf.yml
 src/image_composition_engine_createch/
-├── classes/
+├── filters/
+│   ├── __init__.py         # FILTERS : noms des filtres dans le YAML
 │   ├── base.py             # Filter : contrat commun des filtres
-│   ├── filters.py          # Nos filtres
-│   ├── importedFilters.py  # Filtres de l'autre groupe, non retouchés
-│   └── layer.py            # Layer : couleurs, alpha, opacité et blend
-├── utils/
-│   ├── parseYaml.py        # Lecture et validation du YAML
-│   ├── imageIO.py          # Lecture et affichage des images
-│   ├── blends.py           # Formules des modes de fusion
-│   └── composition.py      # Création des calques et composition
-├── registry.py             # Noms des filtres et des blends utilisables dans le YAML
+│   ├── ours.py             # Nos filtres
+│   └── imported.py         # Filtres de l'autre groupe, non retouchés
+├── blends.py               # Modes de fusion et BLENDS : leurs noms dans le YAML
+├── config.py               # Lecture et validation du YAML
+├── layer.py                # Layer : couleurs, alpha, opacité et blend
+├── composition.py          # Création des calques et composition
+├── imageIO.py              # Lecture et affichage des images
 └── main.py                 # Point d'entrée
 ```
+
+Les dépendances vont dans un seul sens : `main` utilise `composition`, qui
+utilise `config`, `layer` et `blends`, qui utilisent `filters`.
 
 `main.py` enchaîne `readConfig()`, `createLayers()`, `compose()` puis
 `showFromArray()`. Dans tout le moteur, une image est un tableau NumPy en
@@ -51,7 +56,7 @@ layers:                       # du fond vers le dessus
     opacity: 0.5              # entre 0 et 1, 1 par défaut
 ```
 
-Les chemins d'images sont relatifs à `src/image_composition_engine_createch`.
+Les chemins d'images sont relatifs au fichier YAML.
 Le YAML est validé par Pydantic dès sa lecture : une clé inconnue, une opacité
 hors de [0, 1], un nom de filtre ou de blend inconnu produisent une erreur qui
 indique le numéro du calque. Les paramètres d'un filtre sont validés par sa
@@ -79,7 +84,7 @@ classe, au moment de créer le calque.
 ## Partager des filtres
 
 Un filtre est une dataclass Pydantic qui hérite de `Filter`
-(`classes/base.py`). Ses paramètres sont ses champs, avec leurs contraintes ;
+(`filters/base.py`). Ses paramètres sont ses champs, avec leurs contraintes ;
 `Filter` impose en plus des types stricts, des nombres finis et refuse les
 paramètres inconnus.
 
@@ -104,14 +109,15 @@ class Brightness(Filter):
         return np.clip(image * self.value, 0, 1)
 ```
 
-Pour donner nos filtres à un autre groupe, `classes/base.py` et
-`classes/filters.py` suffisent. Ils ne dépendent que de NumPy, SciPy et Pydantic.
+Pour donner nos filtres à un autre groupe, `filters/base.py` et
+`filters/ours.py` suffisent. Ils ne dépendent que de NumPy, SciPy et Pydantic.
 
 Pour utiliser les filtres d'un autre groupe :
 
-1. Copier leurs classes dans `classes/importedFilters.py` sans les modifier ;
+1. Copier leurs classes dans `filters/imported.py` sans les modifier ;
    seul l'import de `Filter` est à adapter.
-2. Leur donner un nom préfixé par `imported` dans `FILTERS`, dans `registry.py`.
+2. Leur donner un nom préfixé par `imported` dans `FILTERS`, dans
+   `filters/__init__.py`.
 3. Utiliser ce nom dans le YAML, avec leurs paramètres dans `params`.
 
 ## Modes de fusion
@@ -120,7 +126,7 @@ Modes disponibles : `normal`, `darken`, `multiply`, `color_burn`,
 `linear_burn`, `lighten`, `screen`, `color_dodge`, `linear_dodge`,
 `overlay`, `soft_light`, `hard_light`, `vivid_light`, `linear_light`,
 `pin_light`, `difference`, `exclusion`. Pour en ajouter un, écrire sa fonction
-dans `utils/blends.py` puis lui donner un nom dans `BLENDS`, dans `registry.py`.
+dans `blends.py` puis lui donner un nom dans `BLENDS`, en bas du même fichier.
 
 Les formules viennent du [tableau Deep Sky Colors](https://www.deepskycolors.com/apps/formulas-for-photoshop-blending-modes/).
 Certaines sont approximatives et ne reproduisent pas exactement Photoshop. En
