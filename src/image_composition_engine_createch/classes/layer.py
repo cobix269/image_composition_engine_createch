@@ -1,40 +1,34 @@
-"""Calques RGBA, registres et application des filtres."""
-
-from __future__ import annotations
+"""Calque : couleurs, transparence, opacité et mode de fusion."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar
 
 import numpy as np
 
 from ..utils.imageIO import arrayFromFile
-from .base import Blend, Filter
-from .blends import BLENDS, BlendParams
-from .filters import FILTERS
-from .importedFilters import FILTERS as IMPORTED_FILTERS
+from .base import Filter
 
 
 @dataclass(eq=False)
 class Layer:
-    """Calque RGBA ; les filtres travaillent uniquement sur ses couleurs RGB."""
+    """Calque prêt à composer, en flottants entre 0 et 1.
 
-    src: str | Path
+    `rgb` a la forme (hauteur, largeur, 3) et `alpha` la forme
+    (hauteur, largeur, 1), pour pouvoir les multiplier directement.
+    """
+
+    rgb: np.ndarray = field(repr=False)
+    alpha: np.ndarray = field(repr=False)
     opacity: float = 1.0
     blend: str = "normal"
-    pixels: np.ndarray = field(init=False, repr=False)
 
-    FILTERS: ClassVar[dict[str, type[Filter]]] = {**FILTERS, **IMPORTED_FILTERS}
-    BLENDS: ClassVar[dict[str, type[Blend]]] = BLENDS
+    @classmethod
+    def fromFile(cls, path: Path, opacity: float = 1.0, blend: str = "normal") -> Layer:
+        """Charge une image ; sans transparence, son alpha vaut 1 partout."""
+        pixels = arrayFromFile(path)
+        return cls(pixels[:, :, :3], pixels[:, :, 3:], opacity, blend)
 
-    def __post_init__(self) -> None:
-        """Charge les pixels après l'affectation automatique des attributs."""
-        self.pixels = arrayFromFile(self.src, "RGBA")
-        self.blend = BlendParams(blend=self.blend).blend
-
-    def applyFilter(self, imageFilter: Filter) -> Layer:
-        """Applique une instance de filtre et conserve l'alpha du calque."""
-        image = self.pixels[:, :, :3].astype(np.float32) / 255
-        result = imageFilter.apply(image)
-        self.pixels[:, :, :3] = np.clip(np.rint(result * 255), 0, 255).astype(np.uint8)
-        return self
+    def applyFilter(self, imageFilter: Filter) -> None:
+        """Remplace les couleurs par celles du filtre ; l'alpha ne change pas."""
+        # Borner protège la composition d'un filtre importé qui sortirait de [0, 1].
+        self.rgb = np.clip(imageFilter.apply(self.rgb), 0, 1)

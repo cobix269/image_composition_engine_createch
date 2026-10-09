@@ -1,4 +1,4 @@
-"""Contrats des filtres et blends, avec leurs règles Pydantic communes."""
+"""Contrat commun des filtres, à fournir avec nos filtres quand on les partage."""
 
 from abc import ABC, abstractmethod
 
@@ -6,24 +6,19 @@ import numpy as np
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 
-parameterConfig = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
 
-
-@dataclass(config=parameterConfig)
+@dataclass(config=ConfigDict(strict=True, extra="forbid", allow_inf_nan=False))
 class Filter(ABC):
-    """Les dataclasses filles héritent des règles de validation Pydantic."""
+    """Filtre d'image dont les paramètres sont les champs de la dataclass.
+
+    Les sous-classes décorées par `@dataclass` héritent de cette configuration :
+    types stricts, nombres finis et aucun paramètre inconnu.
+    """
 
     @abstractmethod
     def apply(self, image: np.ndarray) -> np.ndarray:
-        """Reçoit une image RGB en flottants entre 0 et 1 et renvoie une image RGB."""
-        pass
+        """Reçoit une image RGB (hauteur, largeur, 3) en flottants entre 0 et 1.
 
-
-@dataclass(config=parameterConfig)
-class Blend(ABC):
-    """Base des modes de fusion ; les paramètres éventuels sont validés."""
-
-    @abstractmethod
-    def apply(self, background: np.ndarray, foreground: np.ndarray) -> np.ndarray:
-        """Mélange deux images RGB entre 0 et 1, sans appliquer leur opacité."""
-        pass
+        Renvoie une image de même forme, entre 0 et 1. L'image reçue peut être
+        modifiée sur place.
+        """

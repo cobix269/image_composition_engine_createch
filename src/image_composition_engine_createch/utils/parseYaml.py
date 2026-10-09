@@ -1,117 +1,81 @@
-from dataclasses import asdict
+"""Lecture et validation du YAML de composition."""
+
 from pathlib import Path
+from typing import Any
 
 import yaml
-from PIL import Image
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from ..classes import BlendParams, Layer
-
-SCRIPT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG_PATH = SCRIPT_DIR.parents[1] / "conf.yml"
+from ..classes.base import Filter
+from ..registry import BLENDS, FILTERS
 
 
-def validateStructure(config: dict) -> None:
-    """Vérifie que le YAML contient une liste non vide de calques."""
-    layers = config.get("layers") if isinstance(config, dict) else None
-    if not isinstance(layers, list) or not layers:
-        raise ValueError("La configuration doit contenir une liste 'layers' non vide.")
-    if any(not isinstance(layer, dict) for layer in layers):
-        raise ValueError("Chaque calque doit être un dictionnaire.")
+class FilterConfig(BaseModel):
+    """Entrée de `filters` : un nom de filtre et les paramètres de sa classe."""
 
+    model_config = ConfigDict(strict=True, extra="forbid")
 
-def validateImages(config: dict) -> None:
-    """Vérifie que les images sont lisibles."""
-    for layerNumber, layer in enumerate(config["layers"], start=1):
-        imagePath = layer.get("image")
-        if not isinstance(imagePath, str) or not imagePath:
-            raise ValueError(f"Calque {layerNumber} : chemin d'image manquant ou invalide.")
+    name: str
+    params: dict[str, Any] = {}
 
+    @field_validator("name")
+    @classmethod
+    def knownFilter(cls, name: str) -> str:
+        if name not in FILTERS:
+            available = ", ".join(FILTERS)
+            raise ValueError(f"filtre inconnu {name!r}. Filtres disponibles : {available}")
+        return name
+
+    def create(self) -> Filter:
+        """Instancie le filtre ; sa dataclass Pydantic valide les paramètres."""
         try:
-            with Image.open(SCRIPT_DIR / imagePath) as image:
-                image.load()
-        except (OSError, ValueError, SyntaxError) as error:
-            raise ValueError(
-                f"Calque {layerNumber} : image '{imagePath}' introuvable ou illisible."
-            ) from error
-
-
-def validateOpacity(config: dict) -> None:
-    """Vérifie les opacités ; une opacité absente vaut 1, comme dans main.py."""
-    for layerNumber, layer in enumerate(config["layers"], start=1):
-        opacity = layer.get("opacity", 1.0)
-        if type(opacity) not in (int, float) or not 0 <= opacity <= 1:
-            raise ValueError(
-                f"Calque {layerNumber} : l'opacité doit être un nombre entre 0 et 1."
-            )
-
-
-def validateBlendModes(config: dict) -> None:
-    """Valide les modes de fusion avec Pydantic ; le défaut est normal."""
-    for layerNumber, layer in enumerate(config["layers"], start=1):
-        try:
-            validated = BlendParams.model_validate({"blend": layer.get("blend", "normal")})
+            return FILTERS[self.name](**self.params)
         except ValidationError as error:
-            message = error.errors()[0]["msg"]
-            raise ValueError(f"Calque {layerNumber}, blend : {message}.") from error
-        layer["blend"] = validated.blend
+            raise ValueError(f"filtre {self.name!r}, {describe(error)}") from error
 
 
-def validateFilterParams(name: str, params: dict, layerNumber: int) -> dict:
-    """Instancie la dataclass Pydantic et récupère ses paramètres validés."""
-    if not isinstance(params, dict):
-        raise ValueError(
-            f"Calque {layerNumber}, filtre '{name}' : params doit être un dictionnaire."
-        )
+class LayerConfig(BaseModel):
+    """Entrée de `layers` ; les champs absents prennent ces valeurs par défaut."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    image: str
+    opacity: float = Field(default=1.0, ge=0, le=1)
+    blend: str = "normal"
+    filters: list[FilterConfig] = []
+
+    @field_validator("blend")
+    @classmethod
+    def knownBlend(cls, blend: str) -> str:
+        if blend not in BLENDS:
+            available = ", ".join(BLENDS)
+            raise ValueError(f"mode inconnu {blend!r}. Modes disponibles : {available}")
+        return blend
+
+
+def readConfig(path: Path) -> list[LayerConfig]:
+    """Lit le YAML et valide ses calques, du fond vers le dessus."""
     try:
-        imageFilter = Layer.FILTERS[name](**params)
-    except ValidationError as error:
-        detail = error.errors()[0]
-        parameter = ".".join(map(str, detail["loc"])) or "params"
-        raise ValueError(
-            f"Calque {layerNumber}, filtre '{name}', {parameter} : {detail['msg']}."
-        ) from error
-    except TypeError as error:
-        raise ValueError(
-            f"Calque {layerNumber}, filtre '{name}' : {error}."
-        ) from error
-    return asdict(imageFilter)
+        config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as error:
+        raise ValueError(f"Syntaxe YAML invalide dans '{path}' : {error}") from error
 
+    entries = config.get("layers") if isinstance(config, dict) else None
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("La configuration doit contenir une liste 'layers' non vide.")
 
-def validateFilters(config: dict) -> None:
-    """Vérifie les noms des filtres et leurs paramètres."""
-    for layerNumber, layer in enumerate(config["layers"], start=1):
-        filters = layer.get("filters", [])
-        if not isinstance(filters, list):
-            raise ValueError(f"Calque {layerNumber} : filters doit être une liste.")
-        for filterConfig in filters:
-            filterName = filterConfig.get("name") if isinstance(filterConfig, dict) else None
-            if not isinstance(filterName, str):
-                raise ValueError(f"Calque {layerNumber} : chaque filtre doit avoir un nom.")
-            if filterName not in Layer.FILTERS:
-                raise ValueError(
-                    f"Calque {layerNumber} : filtre inconnu '{filterName}'. "
-                    f"Filtres disponibles : {', '.join(Layer.FILTERS)}."
-                )
-            filterConfig["params"] = validateFilterParams(
-                filterName, filterConfig.get("params", {}), layerNumber
-            )
-
-
-def readYaml(path: str | Path | None = None) -> dict:
-    """Charge le YAML et valide les images, les opacités, les blends et les filtres."""
-    if path is None:
-        path = DEFAULT_CONFIG_PATH
-
-    with Path(path).open(encoding="utf-8") as file:
+    layers = []
+    for number, entry in enumerate(entries, start=1):
         try:
-            config = yaml.safe_load(file)
-        except yaml.YAMLError as error:
-            raise ValueError(f"Syntaxe YAML invalide dans '{path}' : {error}") from error
+            layers.append(LayerConfig.model_validate(entry))
+        except ValidationError as error:
+            raise ValueError(f"Calque {number}, {describe(error)}") from error
+    return layers
 
-    validateStructure(config)
-    validateOpacity(config)
-    validateBlendModes(config)
-    validateFilters(config)
-    validateImages(config)
-    return config
+
+def describe(error: ValidationError) -> str:
+    """Résume la première erreur Pydantic en « champ : message »."""
+    detail = error.errors()[0]
+    field = ".".join(map(str, detail["loc"]))
+    message = detail["msg"].removeprefix("Value error, ")
+    return f"{field} : {message}" if field else message

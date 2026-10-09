@@ -1,7 +1,7 @@
 [project]
 name = "image-composition-engine-createch"
 version = "0.1.0"
-description = "Add your description here"
+description = "Moteur de composition d'images piloté par un fichier YAML."
 readme = "README.md"
 authors = [
     { name = "Zoé Desfretier", email = "zoe.desfretier@gmail.com" }

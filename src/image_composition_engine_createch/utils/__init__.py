@@ -1,1 +1,1 @@
-"""Utilitaires de lecture YAML, d’images et de composition."""
+"""Lecture du YAML et des images, modes de fusion et composition."""
